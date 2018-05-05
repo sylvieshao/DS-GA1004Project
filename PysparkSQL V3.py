@@ -247,6 +247,7 @@ census_income_cleaned.createOrReplaceTempView("census_income_cleaned")
 crime_cleaned = spark.sql("\
 select concat(year(TO_DATE(CAST(UNIX_TIMESTAMP(CMPLNT_FR_DT, 'MM/dd/yyyy') AS TIMESTAMP))), '/', month(TO_DATE(CAST(UNIX_TIMESTAMP(CMPLNT_FR_DT, 'MM/dd/yyyy') AS TIMESTAMP)))) as month, \
 month(TO_DATE(CAST(UNIX_TIMESTAMP(CMPLNT_FR_DT, 'MM/dd/yyyy') AS TIMESTAMP))) as month_of_year, \
+case when (substr(CMPLNT_FR_TM, 0, 2) >= 7 and substr(CMPLNT_FR_TM, 0, 2) <= 10) or (substr(CMPLNT_FR_TM, 0, 2) >= 17 and substr(CMPLNT_FR_TM, 0, 2) <= 20) then 'R' else 'NR' end as rush_hour, \
 LAW_CAT_CD as crime_type, \
 BORO_NM as borough, \
 count(*) as count \
@@ -254,91 +255,122 @@ from crime \
 where BORO_NM is not null and TO_DATE(CAST(UNIX_TIMESTAMP(CMPLNT_FR_DT, 'MM/dd/yyyy') AS TIMESTAMP)) >= '2011-01-01'\
 group by concat(year(TO_DATE(CAST(UNIX_TIMESTAMP(CMPLNT_FR_DT, 'MM/dd/yyyy') AS TIMESTAMP))), '/', month(TO_DATE(CAST(UNIX_TIMESTAMP(CMPLNT_FR_DT, 'MM/dd/yyyy') AS TIMESTAMP)))), \
 month(TO_DATE(CAST(UNIX_TIMESTAMP(CMPLNT_FR_DT, 'MM/dd/yyyy') AS TIMESTAMP))), \
+case when (substr(CMPLNT_FR_TM, 0, 2) >= 7 and substr(CMPLNT_FR_TM, 0, 2) <= 10) or (substr(CMPLNT_FR_TM, 0, 2) >= 17 and substr(CMPLNT_FR_TM, 0, 2) <= 20) then 'R' else 'NR' end, \
 LAW_CAT_CD, \
 BORO_NM")
 crime_cleaned.createOrReplaceTempView("crime_cleaned")
 
+#Citi Bike Distinct Zipcode
+citi_bike_stations = spark.sql(" \
+select distinct `start station id` as station_id, \
+`start station latitude` as lat, \
+`start station longitude` as long \
+from citi_bike \
+\
+union \
+\
+select distinct `end station id` as station_id, \
+`end station latitude` as lat, \
+`end station longitude` as long \
+from citi_bike")
+citi_bike_stations.createOrReplaceTempView("citi_bike_stations")
+
 citi_bike_cleaned = spark.sql("\
 select concat(year(TO_DATE(starttime)), '/', month(TO_DATE(starttime))) as month, \
 month(TO_DATE(starttime)) as month_of_year, \
+case when (hour(starttime) >= 7 and hour(starttime) <= 10) or (hour(starttime) >= 17 and hour(starttime) <= 20) then 'R' else 'NR' end as rush_hour, \
 avg(tripduration) as avg_trip_duration, \
 sum(tripduration) as total_trip_duration, \
 count(*) as total_trip_count \
 from citi_bike \
 group by concat(year(TO_DATE(starttime)), '/', month(TO_DATE(starttime))), \
-month(TO_DATE(starttime))")
+month(TO_DATE(starttime)), \
+case when (hour(starttime) >= 7 and hour(starttime) <= 10) or (hour(starttime) >= 17 and hour(starttime) <= 20) then 'R' else 'NR' end")
 citi_bike_cleaned.createOrReplaceTempView("citi_bike_cleaned")
+
 
 taxi_cleaned = spark.sql("\
 select from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'yyyy/MM') as month, \
 from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'MM') as month_of_year, \
+case when (hour(pickup_datetime) >= 7 and hour(pickup_datetime) <= 10) or (hour(pickup_datetime) >= 17 and hour(pickup_datetime) <= 20) then 'R' else 'NR' end as rush_hour, \
 avg(trip_distance) as avg_trip_distance, \
 sum(trip_distance) as total_trip_distance, \
 avg(total_amount) as avg_amount, \
 sum(total_amount) as total_amount \
 from taxi_2012 \
 group by from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'yyyy/MM'), \
-from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'MM') \
+from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'MM'), \
+case when (hour(pickup_datetime) >= 7 and hour(pickup_datetime) <= 10) or (hour(pickup_datetime) >= 17 and hour(pickup_datetime) <= 20) then 'R' else 'NR' end \
 \
 union all \
 \
 select from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'yyyy/MM') as month, \
 from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'MM') as month_of_year, \
+case when (hour(pickup_datetime) >= 7 and hour(pickup_datetime) <= 10) or (hour(pickup_datetime) >= 17 and hour(pickup_datetime) <= 20) then 'R' else 'NR' end as rush_hour, \
 avg(trip_distance) as avg_trip_distance, \
 sum(trip_distance) as total_trip_distance, \
 avg(total_amount) as avg_amount, \
 sum(total_amount) as total_amount \
 from taxi_2013 \
 group by from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'yyyy/MM'), \
-from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'MM') \
+from_unixtime(UNIX_TIMESTAMP(pickup_datetime, 'MM/dd/yyyy'), 'MM'), \
+case when (hour(pickup_datetime) >= 7 and hour(pickup_datetime) <= 10) or (hour(pickup_datetime) >= 17 and hour(pickup_datetime) <= 20) then 'R' else 'NR' end \
 \
 union all \
 \
 select from_unixtime(UNIX_TIMESTAMP(` pickup_datetime`, 'MM/dd/yyyy'), 'yyyy/MM') as month, \
 from_unixtime(UNIX_TIMESTAMP(` pickup_datetime`, 'MM/dd/yyyy'), 'MM') as month_of_year, \
+case when (hour(` pickup_datetime`) >= 7 and hour(` pickup_datetime`) <= 10) or (hour(` pickup_datetime`) >= 17 and hour(` pickup_datetime`) <= 20) then 'R' else 'NR' end as rush_hour, \
 avg(` trip_distance`) as avg_trip_distance, \
 sum(` trip_distance`) as total_trip_distance, \
 avg(` total_amount`) as avg_amount, \
 sum(` total_amount`) as total_amount \
 from taxi_2014 \
 group by from_unixtime(UNIX_TIMESTAMP(` pickup_datetime`, 'MM/dd/yyyy'), 'yyyy/MM'), \
-from_unixtime(UNIX_TIMESTAMP(` pickup_datetime`, 'MM/dd/yyyy'), 'MM') \
+from_unixtime(UNIX_TIMESTAMP(` pickup_datetime`, 'MM/dd/yyyy'), 'MM'), \
+case when (hour(` pickup_datetime`) >= 7 and hour(` pickup_datetime`) <= 10) or (hour(` pickup_datetime`) >= 17 and hour(` pickup_datetime`) <= 20) then 'R' else 'NR' end \
 \
 union all \
 \
 select from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'yyyy/MM') as month, \
 from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'MM') as month_of_year, \
+case when (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 7 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 10) or (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 17 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 20) then 'R' else 'NR' end as rush_hour, \
 avg(trip_distance) as avg_trip_distance, \
 sum(trip_distance) as total_trip_distance, \
 avg(total_amount) as avg_amount, \
 sum(total_amount) as total_amount \
 from taxi_2015 \
 group by from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'yyyy/MM'), \
-from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'MM') \
+from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'MM'), \
+case when (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 7 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 10) or (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 17 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 20) then 'R' else 'NR' end \
 \
 union all \
 \
 select from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'yyyy/MM') as month, \
 from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'MM') as month_of_year, \
+case when (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 7 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 10) or (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 17 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 20) then 'R' else 'NR' end as rush_hour, \
 avg(trip_distance) as avg_trip_distance, \
 sum(trip_distance) as total_trip_distance, \
 avg(total_amount) as avg_amount, \
 sum(total_amount) as total_amount \
 from taxi_2016 \
 group by from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'yyyy/MM'), \
-from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'MM') \
+from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'MM'), \
+case when (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 7 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 10) or (from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') >= 17 and from_unixtime(unix_timestamp(tpep_pickup_datetime,'yyyy-MM-dd HH:mm:ss'), 'HH') <= 20) then 'R' else 'NR' end \
 \
 union all \
 \
 select from_unixtime(UNIX_TIMESTAMP(tpep_pickup_datetime, 'MM/dd/yyyy'), 'yyyy/MM') as month, \
 from_unixtime(UNIX_TIMESTAMP(tpep_pickup_datetime, 'MM/dd/yyyy'), 'MM') as month_of_year, \
+case when (hour(tpep_pickup_datetime) >= 7 and hour(tpep_pickup_datetime) <= 10) or (hour(tpep_pickup_datetime) >= 17 and hour(tpep_pickup_datetime) <= 20) then 'R' else 'NR' end as rush_hour, \
 avg(trip_distance) as avg_trip_distance, \
 sum(trip_distance) as total_trip_distance, \
 avg(total_amount) as avg_amount, \
 sum(total_amount) as total_amount \
 from taxi_2017 \
 group by from_unixtime(UNIX_TIMESTAMP(tpep_pickup_datetime, 'MM/dd/yyyy'), 'yyyy/MM'), \
-from_unixtime(UNIX_TIMESTAMP(tpep_pickup_datetime, 'MM/dd/yyyy'), 'MM')")
+from_unixtime(UNIX_TIMESTAMP(tpep_pickup_datetime, 'MM/dd/yyyy'), 'MM'), \
+case when (hour(tpep_pickup_datetime) >= 7 and hour(tpep_pickup_datetime) <= 10) or (hour(tpep_pickup_datetime) >= 17 and hour(tpep_pickup_datetime) <= 20) then 'R' else 'NR' end ")
 taxi_cleaned.createOrReplaceTempView("taxi_cleaned")
 ####
 
@@ -366,6 +398,7 @@ census_education_cleaned.coalesce(1).write.save("census_education.out",format="c
 census_income_cleaned.coalesce(1).write.save("census_income.out",format="csv",header="true")
 
 crime_cleaned.coalesce(1).write.save("crime.out",format="csv",header="true")
+citi_bike_stations.coalesce(1).write.save("citi_bike_stations.out",format="csv",header="true")
 citi_bike_cleaned.coalesce(1).write.save("citibike.out",format="csv",header="true")
 taxi_cleaned.coalesce(1).write.save("taxi.out",format="csv",header="true")
 
